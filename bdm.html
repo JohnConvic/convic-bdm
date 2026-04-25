@@ -147,23 +147,17 @@ async function getToken() {
 
 let fileItemId = null;
 
+const FILE_GUID = '42a849cf-589b-48bf-9956-da65c75ddeb9';
+
 async function getFileItemId(token) {
   if (fileItemId) return fileItemId;
-  // First get the site ID
-  const siteRes = await fetch(`${GRAPH_BASE}/sites/convicptyltd.sharepoint.com:/sites/CONVICManagementTeam`, { 
-    headers: { Authorization: `Bearer ${token}` } 
+  const sid = await getSiteId(token);
+  const res = await fetch(`${GRAPH_BASE}/sites/${sid}/drive/items/${FILE_GUID}`, {
+    headers: { Authorization: `Bearer ${token}` }
   });
-  if (!siteRes.ok) throw new Error(`Failed to get site: ${siteRes.status} - ${await siteRes.text()}`);
-  const siteData = await siteRes.json();
-  const siteId = siteData.id;
-  
-  // Then get the file using the site ID
-  const fileRes = await fetch(`${GRAPH_BASE}/sites/${siteId}/drive/root:/Shared%20Documents/BDM%20Leads.xlsx`, { 
-    headers: { Authorization: `Bearer ${token}` } 
-  });
-  if (!fileRes.ok) throw new Error(`Failed to get file: ${fileRes.status} - ${await fileRes.text()}`);
-  const fileData = await fileRes.json();
-  fileItemId = fileData.id;
+  if (!res.ok) throw new Error(`Failed to get file: ${res.status} - ${await res.text()}`);
+  const data = await res.json();
+  fileItemId = data.id;
   return fileItemId;
 }
 
