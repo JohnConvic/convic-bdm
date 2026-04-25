@@ -9,14 +9,6 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f0f0; }
 
-.header { background: #1a1a1a; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
-.logo { color: #fff; font-size: 20px; font-weight: 700; letter-spacing: 3px; }
-.header-right { display: flex; align-items: center; gap: 12px; }
-.user-name { color: #888; font-size: 12px; }
-.sign-in-btn { background: #7dc943; color: #111; border: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
-.sign-in-btn:hover { background: #6ab535; }
-.page-title { color: #fff; font-size: 13px; letter-spacing: 1px; }
-
 .container { padding: 14px; }
 
 .top-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 12px; }
@@ -80,11 +72,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f0f0; }
 <body>
 
 <div class="container" id="mainContent">
-  <div class="signin-prompt">
-    <h2>BDM Intelligence</h2>
-    <p>Sign in with your Convic Microsoft account to access tender emails, news alerts and leads.</p>
-    <button class="signin-large" onclick="signIn()">Sign in with Microsoft</button>
-  </div>
+  <div class="loading">Loading BDM Intelligence...</div>
 </div>
 
 <script>
@@ -92,9 +80,9 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f0f0; }
 const CLIENT_ID   = 'd4f4a9b9-68ab-43f4-90ab-97e8b4ccd984';
 const TENANT_ID   = '0d3c3d52-0b00-4aa5-a64d-72bfcfc67c08';
 const GRAPH_BASE  = 'https://graph.microsoft.com/v1.0';
-const SITE_PATH   = 'convicptyltd.sharepoint.com:/sites/CONVICManagementTeam:';
-const FILE_PATH   = '/Shared Documents/BDM Leads.xlsx';
 const SHAREPOINT_LEADS_URL = 'https://convicptyltd.sharepoint.com/sites/CONVICManagementTeam/Shared%20Documents/BDM%20Leads.xlsx?web=1';
+const SCOPES = ['Files.Read.All', 'Sites.Read.All', 'User.Read'];
+const FILE_GUID = '42a849cf-589b-48bf-9956-da65c75ddeb9';
 
 const msalConfig = {
   auth: {
@@ -110,19 +98,45 @@ let account = null;
 
 async function init() {
   await msalInstance.initialize();
+
+  // Handle redirect coming back after login
   const response = await msalInstance.handleRedirectPromise();
-  if (response) account = response.account;
-  else {
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length > 0) account = accounts[0];
-  }
-  if (account) {
+  if (response) {
+    account = response.account;
     loadData();
+    return;
+  }
+
+  // Check for existing cached account
+  const accounts = msalInstance.getAllAccounts();
+  if (accounts.length > 0) {
+    account = accounts[0];
+    loadData();
+    return;
+  }
+
+  // No cached account — attempt silent SSO using existing Microsoft session
+  try {
+    const silentResult = await msalInstance.ssoSilent({ scopes: SCOPES });
+    account = silentResult.account;
+    loadData();
+  } catch (silentErr) {
+    // Silent SSO failed — show sign-in button as fallback
+    showSignInPrompt();
   }
 }
 
+function showSignInPrompt() {
+  document.getElementById('mainContent').innerHTML = `
+    <div class="signin-prompt">
+      <h2>BDM Intelligence</h2>
+      <p>Sign in with your Convic Microsoft account to access tender emails, news alerts and leads.</p>
+      <button class="signin-large" onclick="signIn()">Sign in with Microsoft</button>
+    </div>`;
+}
+
 async function signIn() {
-  await msalInstance.loginRedirect({ scopes: ['Files.Read.All', 'Sites.Read.All', 'User.Read'] });
+  await msalInstance.loginRedirect({ scopes: SCOPES });
 }
 
 function signOut() {
@@ -130,29 +144,11 @@ function signOut() {
 }
 
 async function getToken() {
-  const result = await msalInstance.acquireTokenSilent({
-    scopes: ['Files.Read.All', 'Sites.Read.All'],
-    account
-  });
+  const result = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account });
   return result.accessToken;
 }
 
 let fileItemId = null;
-
-const FILE_GUID = '42a849cf-589b-48bf-9956-da65c75ddeb9';
-
-async function getFileItemId(token) {
-  if (fileItemId) return fileItemId;
-  const sid = await getSiteId(token);
-  const res = await fetch(`${GRAPH_BASE}/sites/${sid}/drive/items/${FILE_GUID}`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  if (!res.ok) throw new Error(`Failed to get file: ${res.status} - ${await res.text()}`);
-  const data = await res.json();
-  fileItemId = data.id;
-  return fileItemId;
-}
-
 let siteId = null;
 
 async function getSiteId(token) {
@@ -164,6 +160,18 @@ async function getSiteId(token) {
   const data = await res.json();
   siteId = data.id;
   return siteId;
+}
+
+async function getFileItemId(token) {
+  if (fileItemId) return fileItemId;
+  const sid = await getSiteId(token);
+  const res = await fetch(`${GRAPH_BASE}/sites/${sid}/drive/items/${FILE_GUID}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error(`Failed to get file: ${res.status} - ${await res.text()}`);
+  const data = await res.json();
+  fileItemId = data.id;
+  return fileItemId;
 }
 
 async function fetchTable(token, tableName) {
@@ -180,15 +188,12 @@ async function loadData() {
   document.getElementById('mainContent').innerHTML = '<div class="loading">Loading BDM Intelligence data...</div>';
   try {
     const token = await getToken();
-
-    // Fetch all three tables
     const [teRows, naRows, leRows] = await Promise.all([
       fetchTable(token, 'TenderEmails'),
       fetchTable(token, 'NewsAlerts'),
       fetchTable(token, 'Leads')
     ]);
 
-    // Parse headers from first row if needed - tables return data rows only
     // TenderEmails columns: Date Received, Body Preview, From, Keyword, State
     const tenderEmails = teRows.map(r => ({
       date: r[0], body: r[1], from: r[2], keyword: r[3], state: r[4]
@@ -219,7 +224,6 @@ function formatBudget(val) {
 
 function formatDate(val) {
   if (!val) return '';
-  // Excel serial date number
   if (typeof val === 'number') {
     const d = new Date((val - 25569) * 86400 * 1000);
     return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -248,7 +252,6 @@ function clsClass(cls) {
 }
 
 function render(tenderEmails, newsAlerts, leads) {
-  // Sort by latest date first
   tenderEmails.sort((a, b) => (b.date || 0) - (a.date || 0));
   newsAlerts.sort((a, b) => (b.date || 0) - (a.date || 0));
 
@@ -266,7 +269,7 @@ function render(tenderEmails, newsAlerts, leads) {
       </div>`).join('');
 
   const leadsHTML = leads.length === 0
-    ? '<div class="loading">No leads yet — <a href="' + SHAREPOINT_LEADS_URL + '" target="_blank">Add leads →</a></div>'
+    ? `<div class="loading">No leads yet — <a href="${SHAREPOINT_LEADS_URL}" target="_blank">Add leads →</a></div>`
     : `<table class="leads-table">
         <thead><tr><th>Project</th><th>Client</th><th>Budget</th><th>Expected</th><th>Last Updated</th></tr></thead>
         <tbody>${leads.map(l => `
@@ -315,7 +318,7 @@ function render(tenderEmails, newsAlerts, leads) {
       <div class="news-grid">${newsHTML}</div>
     </div>
     <div style="text-align:right;padding:6px 14px;font-size:11px;color:#999;">
-      ${account.name} · <a href="#" onclick="signOut()" style="color:#7dc943;text-decoration:none;">Sign out</a>
+      ${account ? account.name : ''} · <a href="#" onclick="signOut()" style="color:#7dc943;text-decoration:none;">Sign out</a>
     </div>`;
 }
 
