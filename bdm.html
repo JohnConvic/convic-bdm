@@ -117,9 +117,6 @@ async function init() {
     if (accounts.length > 0) account = accounts[0];
   }
   if (account) {
-    document.getElementById('userName').textContent = account.name;
-    document.getElementById('signInBtn').textContent = 'Sign Out';
-    document.getElementById('signInBtn').onclick = signOut;
     loadData();
   }
 }
