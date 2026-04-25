@@ -145,8 +145,21 @@ async function getToken() {
   return result.accessToken;
 }
 
+let fileItemId = null;
+
+async function getFileItemId(token) {
+  if (fileItemId) return fileItemId;
+  const url = `${GRAPH_BASE}/sites/${SITE_PATH}/drive/root:/Shared Documents/BDM Leads.xlsx`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Failed to get file: ${res.status}`);
+  const data = await res.json();
+  fileItemId = data.id;
+  return fileItemId;
+}
+
 async function fetchTable(token, tableName) {
-  const url = `${GRAPH_BASE}/sites/${SITE_PATH}/drive/items/root:${encodeURIComponent(FILE_PATH)}:/workbook/tables/${tableName}/rows?$top=100`;
+  const itemId = await getFileItemId(token);
+  const url = `${GRAPH_BASE}/sites/${SITE_PATH}/drive/items/${itemId}/workbook/tables/${tableName}/rows?$top=100`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`Failed to fetch ${tableName}: ${res.status}`);
   const data = await res.json();
