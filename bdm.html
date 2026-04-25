@@ -146,7 +146,7 @@ async function getToken() {
 }
 
 async function fetchTable(token, tableName) {
-  const url = `${GRAPH_BASE}/sites/${SITE_PATH}/drive/root:${FILE_PATH}:/workbook/tables/${tableName}/rows?$top=100`;
+  const url = `${GRAPH_BASE}/sites/${SITE_PATH}/drive/items/root:${FILE_PATH}:/workbook/tables/${tableName}/rows?$top=100`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`Failed to fetch ${tableName}: ${res.status}`);
   const data = await res.json();
