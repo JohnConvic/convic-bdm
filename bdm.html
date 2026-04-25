@@ -90,7 +90,7 @@ const msalConfig = {
     authority: `https://login.microsoftonline.com/${TENANT_ID}`,
     redirectUri: window.location.href.split('?')[0].split('#')[0]
   },
-  cache: { cacheLocation: 'sessionStorage' }
+  cache: { cacheLocation: 'localStorage' }
 };
 
 const msalInstance = new msal.PublicClientApplication(msalConfig);
