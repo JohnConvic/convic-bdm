@@ -48,7 +48,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f0f0; }
 .panel-scroll::-webkit-scrollbar-track { background: #f0f0f0; }
 .panel-scroll::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
 
-.news-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 12px; }
+.news-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 12px; }
 .news-card { background: #fff; border-radius: 6px; overflow: hidden; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: box-shadow 0.2s; }
 .news-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
 .news-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; background: #f0f0f0; display: block; }
@@ -260,6 +260,10 @@ function clsClass(cls) {
 }
 
 function render(tenderEmails, newsAlerts, leads) {
+  // Sort by latest date first
+  tenderEmails.sort((a, b) => (b.date || 0) - (a.date || 0));
+  newsAlerts.sort((a, b) => (b.date || 0) - (a.date || 0));
+
   const tenderHTML = tenderEmails.length === 0
     ? '<div class="loading">No matched tender emails yet</div>'
     : tenderEmails.map(t => `
