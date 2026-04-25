@@ -149,9 +149,9 @@ let fileItemId = null;
 
 async function getFileItemId(token) {
   if (fileItemId) return fileItemId;
-  const url = `${GRAPH_BASE}/sites/${SITE_PATH}/drive/root:/Shared Documents/BDM Leads.xlsx`;
+  const url = `${GRAPH_BASE}/sites/${SITE_PATH}/drive/root:/Shared%20Documents/BDM%20Leads.xlsx`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error(`Failed to get file: ${res.status}`);
+  if (!res.ok) throw new Error(`Failed to get file: ${res.status} - ${await res.text()}`);
   const data = await res.json();
   fileItemId = data.id;
   return fileItemId;
