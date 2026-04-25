@@ -149,17 +149,41 @@ let fileItemId = null;
 
 async function getFileItemId(token) {
   if (fileItemId) return fileItemId;
-  const url = `${GRAPH_BASE}/sites/${SITE_PATH}/drive/root:/Shared%20Documents/BDM%20Leads.xlsx`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error(`Failed to get file: ${res.status} - ${await res.text()}`);
-  const data = await res.json();
-  fileItemId = data.id;
+  // First get the site ID
+  const siteRes = await fetch(`${GRAPH_BASE}/sites/convicptyltd.sharepoint.com:/sites/CONVICManagementTeam`, { 
+    headers: { Authorization: `Bearer ${token}` } 
+  });
+  if (!siteRes.ok) throw new Error(`Failed to get site: ${siteRes.status} - ${await siteRes.text()}`);
+  const siteData = await siteRes.json();
+  const siteId = siteData.id;
+  
+  // Then get the file using the site ID
+  const fileRes = await fetch(`${GRAPH_BASE}/sites/${siteId}/drive/root:/Shared%20Documents/BDM%20Leads.xlsx`, { 
+    headers: { Authorization: `Bearer ${token}` } 
+  });
+  if (!fileRes.ok) throw new Error(`Failed to get file: ${fileRes.status} - ${await fileRes.text()}`);
+  const fileData = await fileRes.json();
+  fileItemId = fileData.id;
   return fileItemId;
+}
+
+let siteId = null;
+
+async function getSiteId(token) {
+  if (siteId) return siteId;
+  const res = await fetch(`${GRAPH_BASE}/sites/convicptyltd.sharepoint.com:/sites/CONVICManagementTeam`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error(`Failed to get site: ${res.status}`);
+  const data = await res.json();
+  siteId = data.id;
+  return siteId;
 }
 
 async function fetchTable(token, tableName) {
   const itemId = await getFileItemId(token);
-  const url = `${GRAPH_BASE}/sites/${SITE_PATH}/drive/items/${itemId}/workbook/tables/${tableName}/rows?$top=100`;
+  const sid = await getSiteId(token);
+  const url = `${GRAPH_BASE}/sites/${sid}/drive/items/${itemId}/workbook/tables/${tableName}/rows?$top=100`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`Failed to fetch ${tableName}: ${res.status}`);
   const data = await res.json();
