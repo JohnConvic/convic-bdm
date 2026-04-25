@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CONVIC BDM Intelligence</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/msal-browser/3.5.0/msal-browser.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f0f0; }
+
+.header { background: #1a1a1a; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+.logo { color: #fff; font-size: 20px; font-weight: 700; letter-spacing: 3px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.user-name { color: #888; font-size: 12px; }
+.sign-in-btn { background: #7dc943; color: #111; border: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.sign-in-btn:hover { background: #6ab535; }
+.page-title { color: #fff; font-size: 13px; letter-spacing: 1px; }
+
+.container { padding: 14px; }
+
+.top-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 12px; }
+
+.panel { background: #fff; border-radius: 6px; overflow: hidden; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.panel-head { background: #1a1a1a; color: #fff; padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
+.panel-head a { color: #7dc943; font-size: 10px; text-decoration: none; }
+.panel-head a:hover { color: #9de05a; }
+.panel-count { background: #7dc943; color: #111; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+
+.tender-item { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
+.tender-item:last-child { border-bottom: none; }
+.tender-item:hover { background: #fafafa; }
+.tender-title { font-size: 13px; color: #1a1a1a; margin-bottom: 4px; line-height: 1.4; }
+.tender-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.tag { font-size: 10px; padding: 1px 7px; border-radius: 3px; }
+.tag-kw { background: #e8f5e0; color: #3a7d0a; font-weight: 600; }
+.tag-from { background: #f0f0f0; color: #555; }
+.tag-date { background: #fff3e0; color: #e65100; }
+
+.leads-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.leads-table th { text-align: left; padding: 8px 14px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #999; border-bottom: 1px solid #eee; font-weight: 600; }
+.leads-table td { padding: 9px 14px; border-bottom: 1px solid #f5f5f5; color: #333; }
+.leads-table tr:last-child td { border-bottom: none; }
+.leads-table tr:hover td { background: #fafafa; }
+.budget { color: #2e7d32; font-weight: 600; }
+
+.news-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 12px; }
+.news-card { background: #fff; border-radius: 6px; overflow: hidden; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: box-shadow 0.2s; }
+.news-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+.news-img { width: 100%; height: 140px; object-fit: cover; background: #f0f0f0; display: block; }
+.news-img-placeholder { width: 100%; height: 140px; background: linear-gradient(135deg, #1a1a1a 0%, #333 100%); display: flex; align-items: center; justify-content: center; }
+.news-img-placeholder .cls-tag { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 3px; letter-spacing: 1px; }
+.news-body { padding: 10px 12px; }
+.news-title { font-size: 13px; font-weight: 600; color: #1a1a1a; line-height: 1.4; margin-bottom: 5px; }
+.news-title a { color: #1a1a1a; text-decoration: none; }
+.news-title a:hover { color: #7dc943; }
+.news-summary { font-size: 11px; color: #666; line-height: 1.5; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.news-meta { font-size: 10px; color: #999; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.cls-funding { background: #e8f5e0; color: #2e7d32; }
+.cls-tender { background: #e3f2fd; color: #1565c0; }
+.cls-consultation { background: #fff3e0; color: #e65100; }
+.cls-construction { background: #f3e5f5; color: #6a1b9a; }
+.cls-completed { background: #f0f0f0; color: #555; }
+.cls-default { background: #f0f0f0; color: #555; }
+.region-tag { background: #1a1a1a; color: #7dc943; font-size: 9px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+
+.loading { text-align: center; padding: 30px; color: #999; font-size: 13px; }
+.error { text-align: center; padding: 20px; color: #c62828; font-size: 12px; background: #ffebee; border-radius: 4px; margin: 10px; }
+.signin-prompt { text-align: center; padding: 40px 20px; color: #666; }
+.signin-prompt h2 { font-size: 18px; color: #1a1a1a; margin-bottom: 8px; }
+.signin-prompt p { font-size: 13px; margin-bottom: 20px; }
+.signin-large { background: #1a1a1a; color: #7dc943; border: none; padding: 12px 28px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; letter-spacing: 1px; }
+.signin-large:hover { background: #333; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="logo">CONVIC</span>
+  <span class="page-title">BDM INTELLIGENCE</span>
+  <div class="header-right">
+    <span class="user-name" id="userName"></span>
+    <button class="sign-in-btn" id="signInBtn" onclick="signIn()">Sign In</button>
+  </div>
+</div>
+
+<div class="container" id="mainContent">
+  <div class="signin-prompt">
+    <h2>Sign in to view BDM Intelligence</h2>
+    <p>Sign in with your Convic Microsoft account to access tender emails, news alerts and leads.</p>
+    <button class="signin-large" onclick="signIn()">Sign in with Microsoft</button>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────────────
+const CLIENT_ID   = 'd4f4a9b9-68ab-43f4-90ab-97e8b4ccd984';
+const TENANT_ID   = '0d3c3d52-0b00-4aa5-a64d-72bfcfc67c08';
+const SITE_ID     = 'convicptyltd.sharepoint.com:/sites/CONVICManagementTeam:';
+const FILE_PATH   = '/sites/CONVICManagementTeam/Shared Documents/BDM Leads.xlsx';
+const SHAREPOINT_LEADS_URL = 'https://convicptyltd.sharepoint.com/sites/CONVICManagementTeam/Shared%20Documents/BDM%20Leads.xlsx';
+
+const msalConfig = {
+  auth: {
+    clientId: CLIENT_ID,
+    authority: `https://login.microsoftonline.com/${TENANT_ID}`,
+    redirectUri: window.location.href.split('?')[0].split('#')[0]
+  },
+  cache: { cacheLocation: 'sessionStorage' }
+};
+
+const msalInstance = new msal.PublicClientApplication(msalConfig);
+let account = null;
+
+async function init() {
+  await msalInstance.initialize();
+  const response = await msalInstance.handleRedirectPromise();
+  if (response) account = response.account;
+  else {
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) account = accounts[0];
+  }
+  if (account) {
+    document.getElementById('userName').textContent = account.name;
+    document.getElementById('signInBtn').textContent = 'Sign Out';
+    document.getElementById('signInBtn').onclick = signOut;
+    loadData();
+  }
+}
+
+async function signIn() {
+  await msalInstance.loginRedirect({ scopes: ['Files.Read.All', 'Sites.Read.All', 'User.Read'] });
+}
+
+function signOut() {
+  msalInstance.logoutRedirect();
+}
+
+async function getToken() {
+  const result = await msalInstance.acquireTokenSilent({
+    scopes: ['Files.Read.All', 'Sites.Read.All'],
+    account
+  });
+  return result.accessToken;
+}
+
+async function fetchTable(token, tableName) {
+  const url = `https://graph.microsoft.com/v1.0/sites/${SITE_ID}/drive/root:${FILE_PATH}:/workbook/tables/${tableName}/rows`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Failed to fetch ${tableName}: ${res.status}`);
+  const data = await res.json();
+  return data.value.map(r => r.values[0]);
+}
+
+async function loadData() {
+  document.getElementById('mainContent').innerHTML = '<div class="loading">Loading BDM Intelligence data...</div>';
+  try {
+    const token = await getToken();
+
+    // Fetch all three tables
+    const [teRows, naRows, leRows] = await Promise.all([
+      fetchTable(token, 'TenderEmails'),
+      fetchTable(token, 'NewsAlerts'),
+      fetchTable(token, 'Leads')
+    ]);
+
+    // Parse headers from first row if needed - tables return data rows only
+    // TenderEmails columns: Date Received, From, Keyword, Body Preview, State
+    const tenderEmails = teRows.map(r => ({
+      date: r[0], from: r[1], keyword: r[2], body: r[3], state: r[4]
+    }));
+
+    // NewsAlerts columns: Date Published, Headline, Summary, Link, Region, Source, Classification, ImageURL
+    const newsAlerts = naRows.map(r => ({
+      date: r[0], headline: r[1], summary: r[2], link: r[3],
+      region: r[4], source: r[5], classification: r[6], imageUrl: r[7]
+    }));
+
+    // Leads columns: Project, Client, Budget, Expected Date, Last Updated
+    const leads = leRows.map(r => ({
+      project: r[0], client: r[1], budget: r[2], expected: r[3], updated: r[4]
+    }));
+
+    render(tenderEmails, newsAlerts, leads);
+  } catch (err) {
+    document.getElementById('mainContent').innerHTML = `<div class="error">Error loading data: ${err.message}</div>`;
+  }
+}
+
+function formatBudget(val) {
+  const n = parseFloat(String(val).replace(/[^0-9.]/g, ''));
+  if (isNaN(n)) return val;
+  return '$' + n.toLocaleString('en-AU', { maximumFractionDigits: 0 });
+}
+
+function formatDate(val) {
+  if (!val) return '';
+  // Excel serial date number
+  if (typeof val === 'number') {
+    const d = new Date((val - 25569) * 86400 * 1000);
+    return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  return val;
+}
+
+function formatMonthYear(val) {
+  if (!val) return '';
+  if (typeof val === 'number') {
+    const d = new Date((val - 25569) * 86400 * 1000);
+    return d.toLocaleDateString('en-AU', { month: 'short', year: '2-digit' });
+  }
+  return val;
+}
+
+function clsClass(cls) {
+  if (!cls) return 'cls-default';
+  const c = cls.toLowerCase();
+  if (c.includes('funding')) return 'cls-funding';
+  if (c.includes('tender')) return 'cls-tender';
+  if (c.includes('consult')) return 'cls-consultation';
+  if (c.includes('construct')) return 'cls-construction';
+  if (c.includes('complet')) return 'cls-completed';
+  return 'cls-default';
+}
+
+function render(tenderEmails, newsAlerts, leads) {
+  const tenderHTML = tenderEmails.length === 0
+    ? '<div class="loading">No matched tender emails yet</div>'
+    : tenderEmails.map(t => `
+      <div class="tender-item">
+        <div class="tender-title">${t.body || '—'}</div>
+        <div class="tender-meta">
+          <span class="tag tag-kw">${t.keyword || ''}</span>
+          <span class="tag tag-from">${t.from || ''}</span>
+          <span class="tag tag-date">${formatDate(t.date)}</span>
+          ${t.state ? `<span class="tag tag-from">${t.state}</span>` : ''}
+        </div>
+      </div>`).join('');
+
+  const leadsHTML = leads.length === 0
+    ? '<div class="loading">No leads yet — <a href="' + SHAREPOINT_LEADS_URL + '" target="_blank">Add leads →</a></div>'
+    : `<table class="leads-table">
+        <thead><tr><th>Project</th><th>Client</th><th>Budget</th><th>Expected</th><th>Last Updated</th></tr></thead>
+        <tbody>${leads.map(l => `
+          <tr>
+            <td>${l.project || ''}</td>
+            <td>${l.client || ''}</td>
+            <td class="budget">${formatBudget(l.budget)}</td>
+            <td>${formatMonthYear(l.expected)}</td>
+            <td>${formatDate(l.updated)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+
+  const newsHTML = newsAlerts.length === 0
+    ? '<div class="loading" style="grid-column:1/-1">No news alerts yet</div>'
+    : newsAlerts.map(n => `
+      <div class="news-card">
+        ${n.imageUrl
+          ? `<img class="news-img" src="${n.imageUrl}" alt="" onerror="this.style.display='none'">`
+          : `<div class="news-img-placeholder"><span class="tag cls-tag ${clsClass(n.classification)}">${n.classification || 'NEWS'}</span></div>`}
+        <div class="news-body">
+          <div class="news-title"><a href="${n.link || '#'}" target="_blank">${n.headline || ''}</a></div>
+          <div class="news-summary">${n.summary || ''}</div>
+          <div class="news-meta">
+            <span class="tag ${clsClass(n.classification)}">${n.classification || ''}</span>
+            <span class="region-tag">${n.region || ''}</span>
+            <span>${n.source || ''}</span>
+            <span>${formatDate(n.date)}</span>
+          </div>
+        </div>
+      </div>`).join('');
+
+  document.getElementById('mainContent').innerHTML = `
+    <div class="top-grid">
+      <div class="panel">
+        <div class="panel-head">Tender Emails <span class="panel-count">${tenderEmails.length}</span></div>
+        ${tenderHTML}
+      </div>
+      <div class="panel">
+        <div class="panel-head">Leads Register <span class="panel-count">${leads.length}</span> <a href="${SHAREPOINT_LEADS_URL}" target="_blank">Manage Leads →</a></div>
+        ${leadsHTML}
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">News Alerts <span class="panel-count">${newsAlerts.length}</span></div>
+      <div class="news-grid">${newsHTML}</div>
+    </div>`;
+}
+
+init();
+</script>
+</body>
+</html>
