@@ -96,9 +96,9 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f0f0; }
 // ── CONFIG ─────────────────────────────────────────────────────────────────
 const CLIENT_ID   = 'd4f4a9b9-68ab-43f4-90ab-97e8b4ccd984';
 const TENANT_ID   = '0d3c3d52-0b00-4aa5-a64d-72bfcfc67c08';
-const SITE_ID     = 'root';
+const GRAPH_BASE  = 'https://graph.microsoft.com/v1.0';
+const SITE_PATH   = 'convicptyltd.sharepoint.com:/sites/CONVICManagementTeam:';
 const FILE_PATH   = '/Shared%20Documents/BDM%20Leads.xlsx';
-const DRIVE_URL   = 'https://graph.microsoft.com/v1.0/sites/convicptyltd.sharepoint.com:/sites/CONVICManagementTeam:/drive/root:';
 const SHAREPOINT_LEADS_URL = 'https://convicptyltd.sharepoint.com/sites/CONVICManagementTeam/Shared%20Documents/BDM%20Leads.xlsx';
 
 const msalConfig = {
@@ -146,7 +146,7 @@ async function getToken() {
 }
 
 async function fetchTable(token, tableName) {
-  const url = `${DRIVE_URL}${FILE_PATH}:/workbook/tables/${tableName}/rows?$top=100`;
+  const url = `${GRAPH_BASE}/sites/${SITE_PATH}/drive/root:${FILE_PATH}:/workbook/tables/${tableName}/rows?$top=100`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`Failed to fetch ${tableName}: ${res.status}`);
   const data = await res.json();
