@@ -22,10 +22,10 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f0f0; }
 .top-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 12px; }
 
 .panel { background: #fff; border-radius: 6px; overflow: hidden; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-.panel-head { background: #1a1a1a; color: #fff; padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
-.panel-head a { color: #7dc943; font-size: 10px; text-decoration: none; }
+.panel-head { background: #1a1a1a; color: #fff; padding: 10px 14px; font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
+.panel-head a { color: #7dc943; font-size: 12px; text-decoration: none; font-weight: 400; }
 .panel-head a:hover { color: #9de05a; }
-.panel-count { background: #7dc943; color: #111; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+.panel-count { background: #7dc943; color: #111; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
 
 .tender-item { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
 .tender-item:last-child { border-bottom: none; }
@@ -189,9 +189,9 @@ async function loadData() {
     ]);
 
     // Parse headers from first row if needed - tables return data rows only
-    // TenderEmails columns: Date Received, From, Keyword, Body Preview, State
+    // TenderEmails columns: Date Received, Body Preview, From, Keyword, State
     const tenderEmails = teRows.map(r => ({
-      date: r[0], from: r[1], keyword: r[2], body: r[3], state: r[4]
+      date: r[0], body: r[1], from: r[2], keyword: r[3], state: r[4]
     }));
 
     // NewsAlerts columns: Date Published, Headline, Summary, Link, Region, Source, Classification, ImageURL
