@@ -39,6 +39,10 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f0f0; }
 .panel-scroll::-webkit-scrollbar { width: 4px; }
 .panel-scroll::-webkit-scrollbar-track { background: #f0f0f0; }
 .panel-scroll::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+.leads-split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.leads-region { border-right: 1px solid #eee; }
+.leads-region:last-child { border-right: none; }
+.region-head { padding: 8px 14px; font-size: 13px; font-weight: 700; color: #444; background: #f9f9f9; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 8px; }
 
 .news-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 12px; }
 .news-card { background: #fff; border-radius: 6px; overflow: hidden; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: box-shadow 0.2s; }
@@ -205,9 +209,9 @@ async function loadData() {
       region: r[4], source: r[5], classification: r[6], imageUrl: r[7]
     }));
 
-    // Leads columns: Project, Client, Budget, Expected Date, Last Updated
+    // Leads columns: Project, Client, Budget, Expected Date, Last Updated, Region
     const leads = leRows.map(r => ({
-      project: r[0], client: r[1], budget: r[2], expected: r[3], updated: r[4]
+      project: r[0], client: r[1], budget: r[2], expected: r[3], updated: r[4], region: r[5]
     }));
 
     render(tenderEmails, newsAlerts, leads);
@@ -268,20 +272,20 @@ function render(tenderEmails, newsAlerts, leads) {
         </div>
       </div>`).join('');
 
-  const leadsHTML = leads.length === 0
-    ? `<div class="loading">No leads yet — <a href="${SHAREPOINT_LEADS_URL}" target="_blank">Add leads →</a></div>`
-    : `<table class="leads-table">
-        <thead><tr><th>Project</th><th>Client</th><th>Budget</th><th>Expected</th><th>Last Updated</th></tr></thead>
-        <tbody>${leads.map(l => `
-          <tr>
-            <td>${l.project || ''}</td>
-            <td>${l.client || ''}</td>
-            <td class="budget">${formatBudget(l.budget)}</td>
-            <td>${formatMonthYear(l.expected)}</td>
-            <td>${formatDate(l.updated)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>`;
+  const leadsTableHTML = (rows) => rows.length === 0
+    ? '<div class="loading">No leads yet</div>'
+    : '<table class="leads-table"><thead><tr><th>Project</th><th>Client</th><th>Budget</th><th>Expected</th><th>Last Updated</th></tr></thead><tbody>' +
+      rows.map(l =>
+        '<tr><td>' + (l.project||'') + '</td><td>' + (l.client||'') + '</td><td class="budget">' + formatBudget(l.budget) + '</td><td>' + formatMonthYear(l.expected) + '</td><td>' + formatDate(l.updated) + '</td></tr>'
+      ).join('') + '</tbody></table>';
+
+  const nzLeads = leads.filter(l => (l.region||'').toString().trim().toUpperCase() === 'NZ');
+  const ausLeads = leads.filter(l => (l.region||'').toString().trim().toUpperCase() === 'AUS');
+
+  const leadsHTML = '<div class="leads-split">' +
+    '<div class="leads-region"><div class="region-head">&#127462;&#127482; Australia <span class="panel-count">' + ausLeads.length + '</span></div><div class="panel-scroll">' + leadsTableHTML(ausLeads) + '</div></div>' +
+    '<div class="leads-region"><div class="region-head">&#127475;&#127487; New Zealand <span class="panel-count">' + nzLeads.length + '</span></div><div class="panel-scroll">' + leadsTableHTML(nzLeads) + '</div></div>' +
+    '</div>';
 
   const newsHTML = newsAlerts.length === 0
     ? '<div class="loading" style="grid-column:1/-1">No news alerts yet</div>'
