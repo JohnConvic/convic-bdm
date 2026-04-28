@@ -256,8 +256,9 @@ function clsClass(cls) {
 }
 
 function render(tenderEmails, newsAlerts, leads) {
-  tenderEmails.sort((a, b) => (b.date || 0) - (a.date || 0));
+  tenderEmails.sort((a, b) => { const av = typeof a.date === "number" ? a.date : new Date(a.date||0).getTime(); const bv = typeof b.date === "number" ? b.date : new Date(b.date||0).getTime(); return bv - av; });
   newsAlerts.sort((a, b) => (b.date || 0) - (a.date || 0));
+  leads.sort((a, b) => (b.updated || 0) - (a.updated || 0));
 
   const tenderHTML = tenderEmails.length === 0
     ? '<div class="loading">No matched tender emails yet</div>'
