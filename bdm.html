@@ -257,7 +257,8 @@ function clsClass(cls) {
 
 function render(tenderEmails, newsAlerts, leads) {
   tenderEmails.sort((a, b) => { const av = typeof a.date === "number" ? a.date : new Date(a.date||0).getTime(); const bv = typeof b.date === "number" ? b.date : new Date(b.date||0).getTime(); return bv - av; });
-  newsAlerts.sort((a, b) => (b.date || 0) - (a.date || 0));
+  const dateVal = v => { if (!v) return 0; if (typeof v === "number") return v; const d = new Date(String(v).replace(" ", "T")); return isNaN(d) ? 0 : d.getTime(); };
+  newsAlerts.sort((a, b) => dateVal(b.date) - dateVal(a.date));
   leads.sort((a, b) => (b.updated || 0) - (a.updated || 0));
 
   const tenderHTML = tenderEmails.length === 0
