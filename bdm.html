@@ -181,7 +181,7 @@ async function getFileItemId(token) {
 async function fetchTable(token, tableName) {
   const itemId = await getFileItemId(token);
   const sid = await getSiteId(token);
-  const url = `${GRAPH_BASE}/sites/${sid}/drive/items/${itemId}/workbook/tables/${tableName}/rows?$top=100`;
+  const url = `${GRAPH_BASE}/sites/${sid}/drive/items/${itemId}/workbook/tables/${tableName}/rows?$top=500`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`Failed to fetch ${tableName}: ${res.status}`);
   const data = await res.json();
