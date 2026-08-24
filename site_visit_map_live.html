@@ -442,7 +442,8 @@ async function fetchAllData(token) {
   const active = [];
   projItems.forEach(item => {
     const f = item.fields || {};
-    const num = normStr(f.ProjectNumber);
+    // "ProjectNumber" is a renamed display label on the list's built-in Title field
+    const num = normStr(f.Title);
     const match = byNumber[num];
     if (!match || match.Latitude == null || match.Longitude == null) {
       unmatched.push(f.ProjectName || num || '(unnamed)');
