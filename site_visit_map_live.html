@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CONVIC Site Visit Radius Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="msal-browser.min.js"></script>
+<style>
+  :root {
+    --green: #1a8f4c;
+    --blue: #1c6fd6;
+    --yellow: #d6a415;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --panel-bg: #ffffff;
+    --border: #e5e7eb;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
+  #app { position: relative; width: 100%; height: 100vh; min-height: 520px; }
+  #map { width: 100%; height: 100%; background: #eef2f5; }
+
+  #leftPanel {
+    position: absolute; top: 12px; left: 12px; bottom: 12px; z-index: 1000;
+    width: 320px; display: flex; flex-direction: column; gap: 12px;
+    pointer-events: none;
+  }
+  #panel {
+    background: var(--panel-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    font-size: 11.5px; flex: 0 0 auto; pointer-events: auto;
+  }
+  #panel h1 { font-size: 13px; margin: 0 0 10px 0; font-weight: 700; }
+  #logoChip {
+    display: inline-block; margin-bottom: 10px;
+  }
+  #logoChip img { display: block; height: 28px; width: auto; }
+  #panel .row { margin-bottom: 10px; }
+  #panel label { display: block; font-weight: 600; margin-bottom: 4px; color: var(--ink); }
+  #panel .sub { color: var(--muted); font-size: 10.5px; }
+  #radiusValue { font-weight: 700; }
+  input[type=range] { width: 100%; accent-color: var(--green); }
+
+  .legend-item { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; display: inline-block; }
+  .swatch.circle-outline { background: transparent; border: 2px solid var(--green); width: 10px; height: 10px; }
+  .swatch.blue { background: var(--blue); }
+  .swatch.yellow { background: var(--yellow); }
+  .swatch.green { background: var(--green); }
+
+  #stats { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  #stats div { margin-bottom: 3px; }
+  #stats b { font-variant-numeric: tabular-nums; }
+
+  .leaflet-popup-content { font-size: 13px; line-height: 1.45; }
+  .leaflet-popup-content b { display: block; margin-bottom: 2px; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; margin-top: 4px; }
+  .pill.active { background: rgba(26,143,76,0.12); color: var(--green); }
+  .pill.tender { background: rgba(28,111,214,0.12); color: var(--blue); }
+  .pill.future { background: rgba(214,164,21,0.15); color: #92720d; }
+
+  #rightPanel {
+    position: absolute; top: 12px; right: 12px; bottom: 12px; z-index: 1000;
+    width: 330px; display: flex; flex-direction: column; gap: 12px;
+    pointer-events: none;
+  }
+  .table-card {
+    background: var(--panel-bg); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    padding: 12px 14px; flex: 1 1 50%; min-height: 0;
+    display: flex; flex-direction: column;
+    pointer-events: auto;
+  }
+  .table-card h2 {
+    font-size: 11.5px; font-weight: 700; margin: 0 0 8px 0;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .table-scroll { overflow-y: auto; flex: 1 1 auto; }
+  #tenderTable, #futureTable { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  #tenderTable td, #futureTable td { padding: 4px 4px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  #tenderTable tr:last-child td, #futureTable tr:last-child td { border-bottom: none; }
+  .row-name { font-weight: 600; color: var(--ink); }
+  .row-client { color: var(--muted); font-size: 11px; }
+  .row-active { color: var(--green); font-size: 11px; font-weight: 600; margin-top: 1px; }
+  .row-dist { color: var(--muted); font-size: 11px; white-space: nowrap; text-align: right; }
+  .empty-row { color: var(--muted); font-style: italic; padding: 6px 4px; }
+
+  #activeListPanel {
+    background: var(--panel-bg); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    padding: 12px 14px; flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column;
+    pointer-events: auto;
+  }
+  #activeListPanel h2 {
+    font-size: 11.5px; font-weight: 700; margin: 0 0 8px 0;
+    display: flex; align-items: center; gap: 7px;
+  }
+  #activeList { list-style: none; margin: 0; padding: 0; font-size: 11.5px; }
+  #activeList li {
+    padding: 5px 4px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background 0.1s;
+  }
+  #activeList li:last-child { border-bottom: none; }
+  #activeList li:hover { background: #f3f6f4; }
+  #activeList .row-name { color: var(--green); }
+
+  @media (max-width: 640px) {
+    #leftPanel { width: calc(100% - 24px); }
+    #rightPanel { display: none; }
+    #activeListPanel { display: none; }
+  }
+
+  #authOverlay {
+    position: absolute; inset: 0; z-index: 3000;
+    background: #f4f6f5; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px; text-align: center; padding: 20px;
+  }
+  #authOverlay.hidden { display: none; }
+  #authOverlay img { height: 26px; }
+  #authOverlay p { color: var(--muted); font-size: 13px; max-width: 340px; margin: 0; }
+  #authOverlay .errBox { color: #b3261e; font-size: 12px; max-width: 380px; }
+  #signInBtn {
+    background: #1a8f4c; color: #fff; border: none; border-radius: 6px;
+    padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  #signInBtn:hover { background: #157a40; }
+  #authStatus {
+    position: absolute; bottom: 6px; right: 10px; z-index: 1500;
+    font-size: 10.5px; color: var(--muted); background: rgba(255,255,255,0.85);
+    padding: 2px 8px; border-radius: 4px;
+  }
+  #authStatus a { color: var(--muted); cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <div id="authOverlay">
+    <div id="logoAuth"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQQAAABECAAAAABCTBQOAAABtElEQVR42u1aXZPDIAjMOvn/f3nv6WZ66SUVBQTLPlZqYF0+nPE4CoVCoVC4Atcf2GnJ7j35tMr3Jco8xM02gpjO3sgEdnx343UVtxsRg0f5tA0/+3KqU/CZBmGAOIYOSmDeLDh4NqJjtrPrY83KN89QZ9HETtOaH4jMoeBrMzthIynQwLatUC+jpkPg2YWj2RCABJMGYZENYhIyFX2pErxjm6j4+tnQrwQsPClaCfHfu4M8ZAzmCheQCpkSkEEf0s8jXouk3tC45Zzg3pvabgFtpATol4SYJMiHPyZUQprpcmU6zF6MsHlN8FVVSxQZtyTBcVwMTAI9QtxICTQsC62yITIJjpeoxIUxMwkoEtTYQm4SUEqomqAnBXyLErCDEpClKiStCdiABMTKh+oO60hApGwIrgSsVMLYwyTGC6/PvbP3Dzjm6AoA3sXU5nm0VDpMZfT71LOFvd8G7g5wlkL2FonVGyMACSo+wlMJSKjiBOkAKz71H/i1I7gU4KoEZRYQIUCI00GTBSCGNCCuCXosaDaxOTq7TuO8fI+9znPQ67+r0JnGwTFfv3tQLhQKhcIjfgBAUFaMFDI4rQAAAABJRU5ErkJggg==" alt="CONVIC" id="logoAuthImg" style="height:26px;width:auto;"></div>
+    <div id="authMessage">
+      <p id="authText">Loading live tender, project, and job data from SharePoint&hellip;</p>
+      <button id="signInBtn" style="display:none;">Sign in with Microsoft</button>
+      <div class="errBox" id="authError" style="display:none;"></div>
+    </div>
+  </div>
+  <div id="authStatus" style="display:none;"></div>
+  <div id="leftPanel">
+  <div id="panel">
+    <div id="logoChip"><img id="logoImg" alt="CONVIC" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQQAAABECAAAAABCTBQOAAABtElEQVR42u1aXZPDIAjMOvn/f3nv6WZ66SUVBQTLPlZqYF0+nPE4CoVCoVC4Atcf2GnJ7j35tMr3Jco8xM02gpjO3sgEdnx343UVtxsRg0f5tA0/+3KqU/CZBmGAOIYOSmDeLDh4NqJjtrPrY83KN89QZ9HETtOaH4jMoeBrMzthIynQwLatUC+jpkPg2YWj2RCABJMGYZENYhIyFX2pErxjm6j4+tnQrwQsPClaCfHfu4M8ZAzmCheQCpkSkEEf0s8jXouk3tC45Zzg3pvabgFtpATol4SYJMiHPyZUQprpcmU6zF6MsHlN8FVVSxQZtyTBcVwMTAI9QtxICTQsC62yITIJjpeoxIUxMwkoEtTYQm4SUEqomqAnBXyLErCDEpClKiStCdiABMTKh+oO60hApGwIrgSsVMLYwyTGC6/PvbP3Dzjm6AoA3sXU5nm0VDpMZfT71LOFvd8G7g5wlkL2FonVGyMACSo+wlMJSKjiBOkAKz71H/i1I7gU4KoEZRYQIUCI00GTBSCGNCCuCXosaDaxOTq7TuO8fI+9znPQ67+r0JnGwTFfv3tQLhQKhcIjfgBAUFaMFDI4rQAAAABJRU5ErkJggg=="></div>
+    <h1>Site Visit Radius</h1>
+    <div class="row">
+      <label>Drive radius: <span id="radiusValue">100</span> km</label>
+      <input type="range" id="radiusSlider" min="50" max="300" step="10" value="100">
+      <div class="sub">Straight-line approximation, not routed drive time</div>
+    </div>
+    <div class="legend-item"><span class="swatch circle-outline"></span> Active job + bubble</div>
+    <div class="legend-item"><span class="swatch blue"></span> Current tender in radius</div>
+    <div class="legend-item"><span class="swatch yellow"></span> Future project in radius</div>
+    <div id="stats"></div>
+  </div>
+
+  <div id="activeListPanel">
+    <h2><span class="swatch green"></span> Active jobs</h2>
+    <div class="table-scroll">
+      <ul id="activeList"></ul>
+    </div>
+  </div>
+  </div>
+
+  <div id="rightPanel">
+    <div class="table-card">
+      <h2><span class="swatch blue"></span> Current tenders in radius</h2>
+      <div class="table-scroll">
+        <table id="tenderTable"><tbody></tbody></table>
+      </div>
+    </div>
+    <div class="table-card">
+      <h2><span class="swatch yellow"></span> Future projects in radius</h2>
+      <div class="table-scroll">
+        <table id="futureTable"><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let DATA = { active: [], tenders: [], future: [] };
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+function nearestActive(pt) {
+  let best = null;
+  for (const a of DATA.active) {
+    const d = haversineKm(pt.lat, pt.lon, a.lat, a.lon);
+    if (!best || d < best.dist) best = { name: a.name, dist: d };
+  }
+  return best;
+}
+
+function computeNearest() {
+  DATA.tenders.forEach(t => { const n = nearestActive(t); t._nearest = n.name; t._dist = n.dist; });
+  DATA.future.forEach(f => { const n = nearestActive(f); f._nearest = n.name; f._dist = n.dist; });
+}
+
+const map = L.map('map', { zoomControl: true }).setView([-33, 150], 5);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  maxZoom: 19,
+  subdomains: 'abcd',
+  attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+}).addTo(map);
+
+const activeGroup = L.layerGroup().addTo(map);
+const circleGroup = L.layerGroup().addTo(map);
+const tenderGroup = L.layerGroup().addTo(map);
+const futureGroup = L.layerGroup().addTo(map);
+
+let boundsPts = [];
+let activeMarkers = [];
+const activeListEl = document.getElementById('activeList');
+
+function renderActive() {
+  activeGroup.clearLayers();
+  activeListEl.innerHTML = '';
+  boundsPts = [];
+  activeMarkers = [];
+
+  DATA.active.forEach(a => {
+    const marker = L.circleMarker([a.lat, a.lon], {
+      radius: 7, color: '#0f6b38', weight: 2, fillColor: '#1a8f4c', fillOpacity: 0.95
+    }).bindPopup(
+      `<b>${a.name}</b>${a.client}<br><span class="pill active">Active job (${a.state})</span>`
+    );
+    marker.addTo(activeGroup);
+    activeMarkers.push(marker);
+    boundsPts.push([a.lat, a.lon]);
+  });
+
+  DATA.active.forEach((a, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<div class="row-name">${a.name}</div><div class="row-client">${a.client} &middot; ${a.state}</div>`;
+    li.addEventListener('click', () => {
+      map.setView([a.lat, a.lon], 10);
+      activeMarkers[i].openPopup();
+    });
+    activeListEl.appendChild(li);
+  });
+}
+
+let circles = [];
+function drawCircles(radiusKm) {
+  circleGroup.clearLayers();
+  circles = DATA.active.map(a =>
+    L.circle([a.lat, a.lon], {
+      radius: radiusKm * 1000,
+      color: '#1a8f4c', weight: 1.5, opacity: 0.55,
+      fillColor: '#1a8f4c', fillOpacity: 0.06
+    }).addTo(circleGroup)
+  );
+}
+
+function fillTable(tbodyId, items, emptyLabel) {
+  const tbody = document.querySelector(`#${tbodyId} tbody`);
+  tbody.innerHTML = '';
+  if (!items.length) {
+    tbody.innerHTML = `<tr><td class="empty-row">No ${emptyLabel} in radius</td></tr>`;
+    return;
+  }
+  items.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td><div class="row-name">${item.name}</div><div class="row-client">${item.client}</div>` +
+      `<div class="row-active">Near: ${item._nearest.trim()}</div></td>` +
+      `<td class="row-dist">${item._dist.toFixed(0)} km</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderPoints(radiusKm) {
+  tenderGroup.clearLayers();
+  futureGroup.clearLayers();
+
+  const tendersInRadius = DATA.tenders.filter(t => t._dist <= radiusKm)
+    .sort((a, b) => a._dist - b._dist);
+  const futureInRadius = DATA.future.filter(f => f._dist <= radiusKm)
+    .sort((a, b) => a._dist - b._dist);
+
+  tendersInRadius.forEach(t => {
+    L.circleMarker([t.lat, t.lon], {
+      radius: 6, color: '#0d4f9c', weight: 1.5, fillColor: '#1c6fd6', fillOpacity: 0.9
+    }).bindPopup(
+      `<b>${t.name}</b>${t.client}<br>${t['Tender Status'] || ''} tender (${t.state})<br>` +
+      `${t._dist.toFixed(0)} km from <i>${t._nearest.trim()}</i><br>` +
+      `<span class="pill tender">Current tender</span>`
+    ).addTo(tenderGroup);
+  });
+
+  futureInRadius.forEach(f => {
+    L.circleMarker([f.lat, f.lon], {
+      radius: 6, color: '#92720d', weight: 1.5, fillColor: '#d6a415', fillOpacity: 0.9
+    }).bindPopup(
+      `<b>${f.name}</b>${f.client}<br>${f.state}<br>` +
+      `${f._dist.toFixed(0)} km from <i>${f._nearest.trim()}</i><br>` +
+      `<span class="pill future">Future project</span>`
+    ).addTo(futureGroup);
+  });
+
+  fillTable('tenderTable', tendersInRadius, 'tenders');
+  fillTable('futureTable', futureInRadius, 'future projects');
+
+  document.getElementById('stats').innerHTML =
+    `<div>Active jobs: <b>${DATA.active.length}</b></div>` +
+    `<div>Tenders in radius: <b>${tendersInRadius.length}</b> / ${DATA.tenders.length}</div>` +
+    `<div>Future projects in radius: <b>${futureInRadius.length}</b> / ${DATA.future.length}</div>`;
+}
+
+function update(radiusKm) {
+  drawCircles(radiusKm);
+  renderPoints(radiusKm);
+}
+
+const slider = document.getElementById('radiusSlider');
+const radiusValue = document.getElementById('radiusValue');
+slider.addEventListener('input', () => {
+  radiusValue.textContent = slider.value;
+  update(parseFloat(slider.value));
+});
+
+// ============================================================
+// Live data: MSAL sign-in + Microsoft Graph
+// ============================================================
+const msalConfig = {
+  auth: {
+    clientId: 'd4f4a9b9-68ab-43f4-90ab-97e8b4ccd984',
+    authority: 'https://login.microsoftonline.com/0d3c3d52-0b00-4aa5-a64d-72bfcfc67c08',
+    redirectUri: window.location.origin + window.location.pathname
+  },
+  cache: {
+    cacheLocation: 'localStorage',
+    storeAuthStateInCookie: false
+  }
+};
+const GRAPH_SCOPES = ['Sites.Read.All', 'Files.Read.All', 'User.Read'];
+
+const SALES_HOST = 'convicptyltd.sharepoint.com';
+const SALES_SITE_PATH = 'CONVICManagementTeam';
+const SALES_FILE_ID = '2372B140-1186-46BE-8C45-C33176652D8F';
+const PROJECTS_LIST = 'RC_Projects';
+
+const pca = new msal.PublicClientApplication(msalConfig);
+let graphToken = null;
+
+const authOverlay = document.getElementById('authOverlay');
+const authText = document.getElementById('authText');
+const authErrorEl = document.getElementById('authError');
+const signInBtn = document.getElementById('signInBtn');
+const authStatus = document.getElementById('authStatus');
+
+function showAuthError(msg) {
+  authErrorEl.style.display = 'block';
+  authErrorEl.textContent = msg;
+  authText.textContent = 'Something went wrong loading live data.';
+  signInBtn.style.display = 'inline-block';
+  signInBtn.textContent = 'Retry';
+}
+
+async function graphGet(url, token) {
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Graph ${res.status} on ${url.replace('https://graph.microsoft.com/v1.0','')}: ${body.slice(0,200)}`);
+  }
+  return res.json();
+}
+
+async function graphGetAllPages(url, token) {
+  let results = [];
+  let next = url;
+  while (next) {
+    const data = await graphGet(next, token);
+    results = results.concat(data.value || []);
+    next = data['@odata.nextLink'] || null;
+  }
+  return results;
+}
+
+async function fetchExcelTable(siteId, tableName, token) {
+  const base = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${SALES_FILE_ID}/workbook/tables/${tableName}`;
+  const headerData = await graphGet(`${base}/headerRowRange`, token);
+  const headers = headerData.values[0].map(h => String(h).trim());
+  const rowObjs = await graphGetAllPages(`${base}/rows?$top=500`, token);
+  return rowObjs.map(r => {
+    const vals = r.values[0];
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = vals[i]; });
+    return obj;
+  });
+}
+
+function normStr(v) {
+  return (v === null || v === undefined) ? '' : String(v).trim();
+}
+
+async function fetchAllData(token) {
+  authText.textContent = 'Loading live tender, project, and job data from SharePoint\u2026';
+
+  // Resolve both SharePoint sites
+  const [salesSite, rootSite] = await Promise.all([
+    graphGet(`https://graph.microsoft.com/v1.0/sites/${SALES_HOST}:/sites/${SALES_SITE_PATH}`, token),
+    graphGet(`https://graph.microsoft.com/v1.0/sites/${SALES_HOST}`, token)
+  ]);
+  const salesSiteId = salesSite.id;
+  const rootSiteId = rootSite.id;
+
+  // Sales Database — AUS + NZ tables
+  const [ausRows, nzRows] = await Promise.all([
+    fetchExcelTable(salesSiteId, 'MDB', token),
+    fetchExcelTable(salesSiteId, 'MDBNZ', token)
+  ]);
+  const salesRows = ausRows.concat(nzRows);
+
+  // RC_Projects — active jobs (everything in the list, no status filtering)
+  const projItems = await graphGetAllPages(
+    `https://graph.microsoft.com/v1.0/sites/${rootSiteId}/lists/${PROJECTS_LIST}/items?expand=fields(select=ProjectNumber,ProjectName,State)&$top=200`,
+    token
+  );
+
+  // Build a lookup of Sales Database rows by Number for the active-job lat/long join
+  const byNumber = {};
+  salesRows.forEach(r => { byNumber[normStr(r['Number'])] = r; });
+
+  const unmatched = [];
+  const active = [];
+  projItems.forEach(item => {
+    const f = item.fields || {};
+    const num = normStr(f.ProjectNumber);
+    const match = byNumber[num];
+    if (!match || match.Latitude == null || match.Longitude == null) {
+      unmatched.push(f.ProjectName || num || '(unnamed)');
+      return;
+    }
+    active.push({
+      name: f.ProjectName || match['Name of Project'] || num,
+      client: match['Client'] || '',
+      state: f.State || match['State'] || '',
+      lat: Number(match.Latitude),
+      lon: Number(match.Longitude)
+    });
+  });
+
+  const tenders = salesRows
+    .filter(r => {
+      const status = normStr(r['Tender Status']).toLowerCase();
+      return (status === 'current' || status === 'submitted') && r.Latitude != null && r.Longitude != null;
+    })
+    .map(r => ({
+      name: r['Name of Project'], client: r['Client'] || '', state: r['State'] || '',
+      lat: Number(r.Latitude), lon: Number(r.Longitude),
+      'Tender Status': r['Tender Status']
+    }));
+
+  const future = salesRows
+    .filter(r => {
+      const awarded = normStr(r['Awarded To']).toLowerCase();
+      const isFuture = normStr(r['Future Project?']).toLowerCase();
+      return awarded === 'convic' && isFuture === 'yes' && r.Latitude != null && r.Longitude != null;
+    })
+    .map(r => ({
+      name: r['Name of Project'], client: r['Client'] || '', state: r['State'] || '',
+      lat: Number(r.Latitude), lon: Number(r.Longitude)
+    }));
+
+  DATA = { active, tenders, future };
+  computeNearest();
+  renderActive();
+  update(parseFloat(slider.value));
+  if (boundsPts.length) {
+    map.fitBounds(boundsPts, { padding: [40, 40] });
+  }
+
+  if (unmatched.length) {
+    console.warn('Active jobs with no lat/long match in Sales Database:', unmatched);
+  }
+
+  authOverlay.classList.add('hidden');
+  authStatus.style.display = 'block';
+  const account = pca.getActiveAccount();
+  authStatus.innerHTML = `Signed in as ${account ? account.username : 'Convic user'} &middot; <a id="signOutLink">Sign out</a>` +
+    (unmatched.length ? ` &middot; <span style="color:#b3261e;">${unmatched.length} active job(s) missing coordinates</span>` : '');
+  document.getElementById('signOutLink').addEventListener('click', () => {
+    pca.logoutRedirect();
+  });
+}
+
+async function getTokenAndLoad() {
+  try {
+    const account = pca.getActiveAccount();
+    const result = await pca.acquireTokenSilent({ scopes: GRAPH_SCOPES, account });
+    await fetchAllData(result.accessToken);
+  } catch (err) {
+    console.error(err);
+    showAuthError(err.message || String(err));
+  }
+}
+
+signInBtn.addEventListener('click', async () => {
+  signInBtn.style.display = 'none';
+  authErrorEl.style.display = 'none';
+  authText.textContent = 'Signing in\u2026';
+  try {
+    const loginResult = await pca.loginPopup({ scopes: GRAPH_SCOPES });
+    pca.setActiveAccount(loginResult.account);
+    await fetchAllData(loginResult.accessToken);
+  } catch (err) {
+    console.error(err);
+    showAuthError(err.message || String(err));
+  }
+});
+
+(async function boot() {
+  try {
+    await pca.initialize();
+    await pca.handleRedirectPromise();
+    const accounts = pca.getAllAccounts();
+    if (accounts.length > 0) {
+      pca.setActiveAccount(accounts[0]);
+      await getTokenAndLoad();
+    } else {
+      try {
+        const ssoResult = await pca.ssoSilent({ scopes: GRAPH_SCOPES });
+        pca.setActiveAccount(ssoResult.account);
+        await fetchAllData(ssoResult.accessToken);
+      } catch (silentErr) {
+        authText.textContent = 'Sign in with your Convic Microsoft account to load live site data.';
+        signInBtn.style.display = 'inline-block';
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    showAuthError(err.message || String(err));
+  }
+})();
+</script>
+</body>
+</html>
