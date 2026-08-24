@@ -397,7 +397,7 @@ async function fetchExcelTable(siteId, tableName, token) {
   const base = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${SALES_FILE_ID}/workbook/tables/${tableName}`;
   const headerData = await graphGet(`${base}/headerRowRange`, token);
   const headers = headerData.values[0].map(h => String(h).trim());
-  const rowObjs = await graphGetAllPages(`${base}/rows?$top=500`, token);
+  const rowObjs = await graphGetAllPages(`${base}/rows?$top=5000`, token);
   return rowObjs.map(r => {
     const vals = r.values[0];
     const obj = {};
@@ -442,6 +442,7 @@ async function fetchAllData(token) {
   const active = [];
   projItems.forEach(item => {
     const f = item.fields || {};
+    if (f.IsComplete === true) return; // completed jobs aren't active
     // "ProjectNumber" is a renamed display label on the list's built-in Title field
     const num = normStr(f.Title);
     const match = byNumber[num];
