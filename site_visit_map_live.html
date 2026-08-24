@@ -204,7 +204,7 @@ function nearestActive(pt) {
     const d = haversineKm(pt.lat, pt.lon, a.lat, a.lon);
     if (!best || d < best.dist) best = { name: a.name, dist: d };
   }
-  return best;
+  return best || { name: 'no active jobs loaded', dist: Infinity };
 }
 
 function computeNearest() {
@@ -430,7 +430,7 @@ async function fetchAllData(token) {
 
   // RC_Projects — active jobs (everything in the list, no status filtering)
   const projItems = await graphGetAllPages(
-    `https://graph.microsoft.com/v1.0/sites/${rootSiteId}/lists/${PROJECTS_LIST}/items?expand=fields(select=ProjectNumber,ProjectName,State)&$top=200`,
+    `https://graph.microsoft.com/v1.0/sites/${rootSiteId}/lists/${PROJECTS_LIST}/items?$expand=fields(select=ProjectNumber,ProjectName,State)&$top=200`,
     token
   );
 
