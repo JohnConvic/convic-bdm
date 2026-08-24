@@ -430,7 +430,7 @@ async function fetchAllData(token) {
 
   // RC_Projects — active jobs (everything in the list, no status filtering)
   const projItems = await graphGetAllPages(
-    `https://graph.microsoft.com/v1.0/sites/${rootSiteId}/lists/${PROJECTS_LIST}/items?$expand=fields(select=ProjectNumber,ProjectName,State)&$top=200`,
+    `https://graph.microsoft.com/v1.0/sites/${rootSiteId}/lists/${PROJECTS_LIST}/items?$expand=fields&$top=200`,
     token
   );
 
