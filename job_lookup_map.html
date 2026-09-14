@@ -153,7 +153,7 @@ const msalApp = new msal.PublicClientApplication({
     authority: `https://login.microsoftonline.com/${TENANT_ID}`,
     redirectUri: window.location.origin + window.location.pathname
   },
-  cache: { cacheLocation: 'sessionStorage' }
+  cache: { cacheLocation: 'localStorage' }   // persists across tabs and browser restarts
 });
 
 const authText = document.getElementById('authText');
@@ -164,13 +164,22 @@ signInBtn.onclick = () => msalApp.loginRedirect({ scopes: SCOPES });
 signOutBtn.onclick = () => msalApp.logoutRedirect();
 
 async function getToken() {
-  const accounts = msalApp.getAllAccounts();
-  if (!accounts.length) return null;
+  let account = msalApp.getActiveAccount() || msalApp.getAllAccounts()[0];
+  if (!account) {
+    // No cached account: try to pick up the existing Microsoft 365 browser session without a prompt
+    try {
+      const r = await msalApp.ssoSilent({ scopes: SCOPES });
+      msalApp.setActiveAccount(r.account);
+      return r.accessToken;
+    } catch (e) {
+      return null;   // fall back to the Sign in button
+    }
+  }
   try {
-    const r = await msalApp.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
+    const r = await msalApp.acquireTokenSilent({ scopes: SCOPES, account });
     return r.accessToken;
   } catch (e) {
-    await msalApp.acquireTokenRedirect({ scopes: SCOPES });
+    await msalApp.acquireTokenRedirect({ scopes: SCOPES, account });
     return null;
   }
 }
