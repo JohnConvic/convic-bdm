@@ -34,6 +34,9 @@
   }
   .search-wrap input:focus { border-color: var(--green-dark); box-shadow: 0 0 0 3px rgba(125,201,67,.25); }
   .search-wrap svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; fill: none; stroke: var(--ink-soft); stroke-width: 2; }
+  .search-wrap.client { margin-top: 8px; }
+  .search-wrap.client input { font-size: 15px; padding: 10px 12px 10px 40px; border-color: var(--line); }
+  .search-wrap.client input:focus { border-color: var(--green); }
   .search-hint { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
 
   #result { padding: 14px 20px; border-bottom: 1px solid var(--line); background: #f8faf5; min-height: 108px; }
@@ -91,7 +94,11 @@
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
         <input id="search" type="search" placeholder="Search by name of project" autocomplete="off" autofocus>
       </div>
-      <div class="search-hint">Type part of the project name. Typing a number searches job numbers too.</div>
+      <div class="search-wrap client">
+        <svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>
+        <input id="searchClient" type="search" placeholder="Search by client" autocomplete="off">
+      </div>
+      <div class="search-hint">Type part of the project name or client. Typing a number in the project box searches job numbers too.</div>
     </div>
 
     <div id="result">
@@ -134,7 +141,7 @@ const TENANT_ID = '0d3c3d52-0b00-4aa5-a64d-72bfcfc67c08';
 const SALES_HOST = 'convicptyltd.sharepoint.com';
 const SALES_SITE_PATH = 'CONVICManagementTeam';
 const SALES_FILE_ID = '2372B140-1186-46BE-8C45-C33176652D8F';   // CONVIC Sales Database.xlsx
-const SALES_TABLES = ['MDB', 'MDBNZ'];                            // AUS + NZ
+const SALES_TABLES = ['MDB', 'MDBNZ', 'MDBI'];                    // AUS + NZ + INT
 const SCOPES = ['Sites.Read.All', 'Files.Read.All', 'User.Read'];
 const DEFAULT_AWARDED = ['CONVIC'];                               // ticked by default
 const TABLE_TOP = 5000;                                           // rows endpoint does not paginate reliably
@@ -214,7 +221,8 @@ async function loadData(token) {
       state: normStr(r['State']) || '(No state)',
       awarded: normStr(r['Awarded To']) || '(Not awarded)',
       status: normStr(r['Tender Status']),
-      region: r.__table === 'MDBNZ' ? 'NZ' : 'AUS',
+      scope: normStr(r['Scope']),
+      region: r.__table === 'MDBNZ' ? 'NZ' : r.__table === 'MDBI' ? 'INT' : 'AUS',
       lat, lon,
       hasCoords: isFinite(lat) && isFinite(lon) && lat !== 0 && lon !== 0
     };
@@ -270,6 +278,7 @@ const highlightLayer = L.layerGroup().addTo(map);
 const markerByNumber = new Map();
 
 const searchInput = document.getElementById('search');
+const clientInput = document.getElementById('searchClient');
 const matchesBox = document.getElementById('matches');
 let visible = [];       // filtered projects
 let matches = [];       // filtered + search
@@ -299,7 +308,8 @@ function drawDots() {
 
 function runSearch() {
   const q = searchInput.value.trim().toLowerCase();
-  if (!q) {
+  const qc = clientInput.value.trim().toLowerCase();
+  if (!q && !qc) {
     matches = [];
     matchesBox.innerHTML = `<div class="empty-note">${visible.length} projects on the map. Start typing a project name.</div>`;
     dimDots(null);
@@ -308,19 +318,21 @@ function runSearch() {
   }
   const isNum = /^\d+$/.test(q);
   matches = visible.filter(p =>
-    p.name.toLowerCase().includes(q) || (isNum && p.number.includes(q))
+    (!q || p.name.toLowerCase().includes(q) || (isNum && p.number.includes(q))) &&
+    (!qc || p.client.toLowerCase().includes(qc))
   ).slice(0, 60);
 
   dimDots(new Set(matches));
   if (!matches.length) {
-    matchesBox.innerHTML = `<div class="empty-note">No projects match "${escapeHtml(searchInput.value)}" with the current filters.</div>`;
+    matchesBox.innerHTML = `<div class="empty-note">No projects match "${escapeHtml([searchInput.value, clientInput.value].filter(Boolean).join(' / '))}" with the current filters.</div>`;
     return;
   }
   matchesBox.innerHTML = matches.map((p, i) => `
     <div class="match ${p === selected ? 'selected' : ''}" data-i="${i}">
       <div class="num">${escapeHtml(p.number || '\u2014')}</div>
       <div><div class="name">${escapeHtml(p.name)}</div>
-      <div class="sub">${escapeHtml([p.client, p.state, p.awarded].filter(Boolean).join(' \u00b7 '))}${p.hasCoords ? '' : ' \u00b7 no coordinates'}</div></div>
+      <div class="sub">${escapeHtml([p.client, p.state, p.awarded].filter(Boolean).join(' \u00b7 '))}${p.hasCoords ? '' : ' \u00b7 no coordinates'}</div>
+      ${p.scope ? `<div class="sub">${escapeHtml(p.scope)}</div>` : ''}</div>
     </div>`).join('');
 
   // Auto-select when the search narrows to one project
@@ -345,7 +357,7 @@ function selectProject(p, fly) {
   document.getElementById('resNumber').textContent = p.number || 'No number recorded';
   document.getElementById('resNumber').classList.toggle('empty', !p.number);
   document.getElementById('resMeta').innerHTML =
-    `<strong>${escapeHtml(p.name)}</strong><br>${escapeHtml([p.client, p.state, p.region].filter(Boolean).join(' \u00b7 '))}<br>Awarded to ${escapeHtml(p.awarded)}${p.status ? ' \u00b7 ' + escapeHtml(p.status) : ''}`;
+    `<strong>${escapeHtml(p.name)}</strong><br>${escapeHtml([p.client, p.state, p.region].filter(Boolean).join(' \u00b7 '))}<br>Awarded to ${escapeHtml(p.awarded)}${p.status ? ' \u00b7 ' + escapeHtml(p.status) : ''}${p.scope ? '<br>Scope: ' + escapeHtml(p.scope) : ''}`;
 
   document.querySelectorAll('.match').forEach(el => el.classList.toggle('selected', matches[Number(el.dataset.i)] === p));
 
@@ -367,14 +379,16 @@ function clearSelection() {
 
 function popupHtml(p) {
   return `<div class="pnum">${escapeHtml(p.number || '\u2014')}</div><div class="pname">${escapeHtml(p.name)}</div>
-    <div class="psub">${escapeHtml([p.client, p.state].filter(Boolean).join(' \u00b7 '))}<br>Awarded to ${escapeHtml(p.awarded)}</div>`;
+    <div class="psub">${escapeHtml([p.client, p.state].filter(Boolean).join(' \u00b7 '))}<br>Awarded to ${escapeHtml(p.awarded)}${p.scope ? '<br>Scope: ' + escapeHtml(p.scope) : ''}</div>`;
 }
 
 let searchTimer;
-searchInput.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 120); });
-searchInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && matches.length) selectProject(matches[0], true);
-  if (e.key === 'Escape') { searchInput.value = ''; runSearch(); }
+[searchInput, clientInput].forEach(inp => {
+  inp.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 120); });
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && matches.length) selectProject(matches[0], true);
+    if (e.key === 'Escape') { inp.value = ''; runSearch(); }
+  });
 });
 
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
