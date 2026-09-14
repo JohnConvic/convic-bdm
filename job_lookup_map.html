@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CONVIC Job Number Lookup</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="msal-browser.min.js"></script>
+<style>
+  :root {
+    --green: #7dc943;
+    --green-dark: #5ea52c;
+    --ink: #1f2a1a;
+    --ink-soft: #5b6654;
+    --line: #dfe5d9;
+    --panel: #ffffff;
+    --bg: #f3f5f0;
+    --highlight: #ff7a00;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: var(--ink); background: var(--bg); }
+  #app { display: grid; grid-template-columns: 400px 1fr; height: 100vh; }
+  #panel { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
+  #map { height: 100vh; }
+
+  .panel-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+  .panel-head h1 { margin: 0 0 12px; font-size: 18px; font-weight: 600; }
+
+  .search-wrap { position: relative; }
+  .search-wrap input {
+    width: 100%; font-size: 18px; padding: 13px 14px 13px 42px; border: 2px solid var(--green);
+    border-radius: 6px; outline: none; background: #fff;
+  }
+  .search-wrap input:focus { border-color: var(--green-dark); box-shadow: 0 0 0 3px rgba(125,201,67,.25); }
+  .search-wrap svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; fill: none; stroke: var(--ink-soft); stroke-width: 2; }
+  .search-hint { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
+
+  #result { padding: 14px 20px; border-bottom: 1px solid var(--line); background: #f8faf5; min-height: 108px; }
+  #result .label { font-size: 12px; color: var(--ink-soft); }
+  #result .number { font-size: 44px; font-weight: 700; line-height: 1.1; letter-spacing: -0.5px; color: var(--ink); }
+  #result .number.empty { color: #b7bfb0; font-size: 22px; font-weight: 500; padding: 8px 0; }
+  #result .meta { font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+  #result .meta strong { color: var(--ink); font-weight: 600; }
+
+  #matches { flex: 1; overflow-y: auto; min-height: 120px; }
+  .match { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 9px 20px; border-bottom: 1px solid #eef1ea; cursor: pointer; font-size: 13px; }
+  .match:hover { background: #f1f7ea; }
+  .match.selected { background: #e6f4d8; border-left: 4px solid var(--green); padding-left: 16px; }
+  .match .num { font-weight: 700; color: var(--green-dark); }
+  .match .name { font-weight: 500; }
+  .match .sub { color: var(--ink-soft); font-size: 12px; }
+  .empty-note { padding: 16px 20px; font-size: 13px; color: var(--ink-soft); }
+
+  details.filter { border-top: 1px solid var(--line); }
+  details.filter summary { cursor: pointer; list-style: none; padding: 10px 20px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  details.filter summary::-webkit-details-marker { display: none; }
+  details.filter summary .count { font-weight: 400; color: var(--ink-soft); }
+  .filter-body { padding: 0 20px 10px; max-height: 190px; overflow-y: auto; }
+  .filter-tools { display: flex; gap: 12px; font-size: 12px; margin-bottom: 6px; }
+  .filter-tools button { background: none; border: none; padding: 0; color: var(--green-dark); cursor: pointer; font-size: 12px; text-decoration: underline; }
+  .filter-body label { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; cursor: pointer; }
+  .filter-body input { accent-color: var(--green); width: 15px; height: 15px; margin: 0; }
+  .filter-body label .n { color: var(--ink-soft); font-size: 12px; margin-left: auto; }
+
+  #status { padding: 10px 20px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-soft); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  #status button { background: var(--green); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; }
+  #status button.quiet { background: none; color: var(--ink-soft); text-decoration: underline; padding: 0; font-weight: 400; }
+
+  .leaflet-popup-content { font-size: 13px; margin: 10px 14px; }
+  .leaflet-popup-content .pnum { font-size: 22px; font-weight: 700; color: var(--green-dark); }
+  .leaflet-popup-content .pname { font-weight: 600; margin-top: 2px; }
+  .leaflet-popup-content .psub { color: var(--ink-soft); font-size: 12px; }
+
+  @keyframes pulse { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(3); opacity: 0; } }
+  .pulse-ring { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--highlight); animation: pulse 1.4s ease-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .pulse-ring { animation: none; } }
+
+  @media (max-width: 800px) {
+    #app { grid-template-columns: 1fr; grid-template-rows: 55vh 45vh; }
+    #map { height: 45vh; order: -1; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <div class="panel-head">
+      <h1>Job number lookup</h1>
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="search" type="search" placeholder="Search by name of project" autocomplete="off" autofocus>
+      </div>
+      <div class="search-hint">Type part of the project name. Typing a number searches job numbers too.</div>
+    </div>
+
+    <div id="result">
+      <div class="label">Job number</div>
+      <div class="number empty" id="resNumber">Select a project to see its number</div>
+      <div class="meta" id="resMeta"></div>
+    </div>
+
+    <div id="matches"><div class="empty-note">Sign in to load the Sales Database.</div></div>
+
+    <details class="filter" open>
+      <summary>Awarded to <span class="count" id="awardCount"></span></summary>
+      <div class="filter-body">
+        <div class="filter-tools"><button data-all="award" data-val="1">Select all</button><button data-all="award" data-val="0">Clear all</button></div>
+        <div id="awardFilters"></div>
+      </div>
+    </details>
+
+    <details class="filter">
+      <summary>State <span class="count" id="stateCount"></span></summary>
+      <div class="filter-body">
+        <div class="filter-tools"><button data-all="state" data-val="1">Select all</button><button data-all="state" data-val="0">Clear all</button></div>
+        <div id="stateFilters"></div>
+      </div>
+    </details>
+
+    <div id="status">
+      <span id="authText">Not signed in</span>
+      <button id="signInBtn">Sign in</button>
+      <button id="signOutBtn" class="quiet" style="display:none">Sign out</button>
+    </div>
+  </aside>
+  <div id="map"></div>
+</div>
+
+<script>
+// ---- Configuration (same app registration and data source as site_visit_map_live.html) ----
+const CLIENT_ID = 'd4f4a9b9-68ab-43f4-90ab-97e8b4ccd984';
+const TENANT_ID = '0d3c3d52-0b00-4aa5-a64d-72bfcfc67c08';
+const SALES_HOST = 'convicptyltd.sharepoint.com';
+const SALES_SITE_PATH = 'CONVICManagementTeam';
+const SALES_FILE_ID = '2372B140-1186-46BE-8C45-C33176652D8F';   // CONVIC Sales Database.xlsx
+const SALES_TABLES = ['MDB', 'MDBNZ'];                            // AUS + NZ
+const SCOPES = ['Sites.Read.All', 'Files.Read.All', 'User.Read'];
+const DEFAULT_AWARDED = ['CONVIC'];                               // ticked by default
+const TABLE_TOP = 5000;                                           // rows endpoint does not paginate reliably
+
+// ---- Auth ----
+const msalApp = new msal.PublicClientApplication({
+  auth: {
+    clientId: CLIENT_ID,
+    authority: `https://login.microsoftonline.com/${TENANT_ID}`,
+    redirectUri: window.location.origin + window.location.pathname
+  },
+  cache: { cacheLocation: 'sessionStorage' }
+});
+
+const authText = document.getElementById('authText');
+const signInBtn = document.getElementById('signInBtn');
+const signOutBtn = document.getElementById('signOutBtn');
+
+signInBtn.onclick = () => msalApp.loginRedirect({ scopes: SCOPES });
+signOutBtn.onclick = () => msalApp.logoutRedirect();
+
+async function getToken() {
+  const accounts = msalApp.getAllAccounts();
+  if (!accounts.length) return null;
+  try {
+    const r = await msalApp.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
+    return r.accessToken;
+  } catch (e) {
+    await msalApp.acquireTokenRedirect({ scopes: SCOPES });
+    return null;
+  }
+}
+
+async function graphGet(url, token) {
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Graph ${res.status} on ${url.replace('https://graph.microsoft.com/v1.0', '')}: ${body.slice(0, 200)}`);
+  }
+  return res.json();
+}
+
+async function fetchExcelTable(siteId, tableName, token) {
+  const base = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${SALES_FILE_ID}/workbook/tables/${tableName}`;
+  const headerData = await graphGet(`${base}/headerRowRange`, token);
+  const headers = headerData.values[0].map(h => String(h).trim());
+  const rowData = await graphGet(`${base}/rows?$top=${TABLE_TOP}`, token);
+  return (rowData.value || []).map(r => {
+    const vals = r.values[0];
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = vals[i]; });
+    obj.__table = tableName;
+    return obj;
+  });
+}
+
+const normStr = v => (v === null || v === undefined) ? '' : String(v).trim();
+
+// ---- Data ----
+let projects = [];         // { number, name, client, state, awarded, status, lat, lon }
+let awardedValues = [];    // distinct Awarded To values
+let stateValues = [];      // distinct State values
+
+async function loadData(token) {
+  authText.textContent = 'Loading Sales Database from SharePoint\u2026';
+  const site = await graphGet(`https://graph.microsoft.com/v1.0/sites/${SALES_HOST}:/sites/${SALES_SITE_PATH}`, token);
+  const tables = await Promise.all(SALES_TABLES.map(t => fetchExcelTable(site.id, t, token)));
+  const rows = tables.flat();
+
+  let skipped = 0;
+  projects = rows.map(r => {
+    const lat = Number(r['Latitude']), lon = Number(r['Longitude']);
+    const p = {
+      number: normStr(r['Number']),
+      name: normStr(r['Name of Project']),
+      client: normStr(r['Client']),
+      state: normStr(r['State']) || '(No state)',
+      awarded: normStr(r['Awarded To']) || '(Not awarded)',
+      status: normStr(r['Tender Status']),
+      region: r.__table === 'MDBNZ' ? 'NZ' : 'AUS',
+      lat, lon,
+      hasCoords: isFinite(lat) && isFinite(lon) && lat !== 0 && lon !== 0
+    };
+    if (!p.hasCoords) skipped++;
+    return p;
+  }).filter(p => p.name || p.number);
+
+  const uniq = arr => [...new Set(arr)].sort((a, b) => a.localeCompare(b));
+  awardedValues = uniq(projects.map(p => p.awarded));
+  stateValues = uniq(projects.map(p => p.state));
+
+  buildFilters();
+  applyFilters();
+  authText.textContent = `${projects.length} projects loaded (${skipped} without coordinates)`;
+}
+
+// ---- Filters ----
+const awardBox = document.getElementById('awardFilters');
+const stateBox = document.getElementById('stateFilters');
+
+function buildFilters() {
+  const countBy = key => projects.reduce((m, p) => { m[p[key]] = (m[p[key]] || 0) + 1; return m; }, {});
+  const ac = countBy('awarded'), sc = countBy('state');
+  awardBox.innerHTML = awardedValues.map(v => `
+    <label><input type="checkbox" data-group="award" value="${escapeAttr(v)}" ${DEFAULT_AWARDED.map(x => x.toLowerCase()).includes(v.toLowerCase()) ? 'checked' : ''}>
+    <span>${escapeHtml(v)}</span><span class="n">${ac[v]}</span></label>`).join('');
+  stateBox.innerHTML = stateValues.map(v => `
+    <label><input type="checkbox" data-group="state" value="${escapeAttr(v)}" checked>
+    <span>${escapeHtml(v)}</span><span class="n">${sc[v]}</span></label>`).join('');
+}
+
+document.addEventListener('change', e => {
+  if (e.target.matches('input[data-group]')) applyFilters();
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-all]');
+  if (!b) return;
+  document.querySelectorAll(`input[data-group="${b.dataset.all}"]`).forEach(cb => { cb.checked = b.dataset.val === '1'; });
+  applyFilters();
+});
+
+function checkedSet(group) {
+  return new Set([...document.querySelectorAll(`input[data-group="${group}"]:checked`)].map(cb => cb.value));
+}
+
+// ---- Map ----
+const map = L.map('map', { zoomControl: true }).setView([-30, 150], 4);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+const dotLayer = L.layerGroup().addTo(map);
+const highlightLayer = L.layerGroup().addTo(map);
+const markerByNumber = new Map();
+
+const searchInput = document.getElementById('search');
+const matchesBox = document.getElementById('matches');
+let visible = [];       // filtered projects
+let matches = [];       // filtered + search
+let selected = null;
+
+function applyFilters() {
+  const aw = checkedSet('award'), st = checkedSet('state');
+  visible = projects.filter(p => aw.has(p.awarded) && st.has(p.state));
+  document.getElementById('awardCount').textContent = `${aw.size}/${awardedValues.length}`;
+  document.getElementById('stateCount').textContent = `${st.size}/${stateValues.length}`;
+  drawDots();
+  runSearch();
+}
+
+function drawDots() {
+  dotLayer.clearLayers();
+  markerByNumber.clear();
+  visible.filter(p => p.hasCoords).forEach(p => {
+    const m = L.circleMarker([p.lat, p.lon], {
+      radius: 5, color: '#fff', weight: 1, fillColor: '#7dc943', fillOpacity: 0.85
+    }).addTo(dotLayer);
+    m.bindPopup(popupHtml(p));
+    m.on('click', () => selectProject(p, false));
+    markerByNumber.set(p.number + '|' + p.name, m);
+  });
+}
+
+function runSearch() {
+  const q = searchInput.value.trim().toLowerCase();
+  if (!q) {
+    matches = [];
+    matchesBox.innerHTML = `<div class="empty-note">${visible.length} projects on the map. Start typing a project name.</div>`;
+    dimDots(null);
+    if (selected && !visible.includes(selected)) clearSelection();
+    return;
+  }
+  const isNum = /^\d+$/.test(q);
+  matches = visible.filter(p =>
+    p.name.toLowerCase().includes(q) || (isNum && p.number.includes(q))
+  ).slice(0, 60);
+
+  dimDots(new Set(matches));
+  if (!matches.length) {
+    matchesBox.innerHTML = `<div class="empty-note">No projects match "${escapeHtml(searchInput.value)}" with the current filters.</div>`;
+    return;
+  }
+  matchesBox.innerHTML = matches.map((p, i) => `
+    <div class="match ${p === selected ? 'selected' : ''}" data-i="${i}">
+      <div class="num">${escapeHtml(p.number || '\u2014')}</div>
+      <div><div class="name">${escapeHtml(p.name)}</div>
+      <div class="sub">${escapeHtml([p.client, p.state, p.awarded].filter(Boolean).join(' \u00b7 '))}${p.hasCoords ? '' : ' \u00b7 no coordinates'}</div></div>
+    </div>`).join('');
+
+  // Auto-select when the search narrows to one project
+  if (matches.length === 1 && matches[0] !== selected) selectProject(matches[0], true);
+}
+
+function dimDots(matchSet) {
+  markerByNumber.forEach((m, key) => {
+    const p = visible.find(x => x.number + '|' + x.name === key);
+    const on = !matchSet || matchSet.has(p);
+    m.setStyle({ fillOpacity: on ? 0.85 : 0.15, radius: on && matchSet ? 7 : 5, fillColor: on && matchSet ? '#5ea52c' : '#7dc943' });
+  });
+}
+
+matchesBox.addEventListener('click', e => {
+  const row = e.target.closest('.match');
+  if (row) selectProject(matches[Number(row.dataset.i)], true);
+});
+
+function selectProject(p, fly) {
+  selected = p;
+  document.getElementById('resNumber').textContent = p.number || 'No number recorded';
+  document.getElementById('resNumber').classList.toggle('empty', !p.number);
+  document.getElementById('resMeta').innerHTML =
+    `<strong>${escapeHtml(p.name)}</strong><br>${escapeHtml([p.client, p.state, p.region].filter(Boolean).join(' \u00b7 '))}<br>Awarded to ${escapeHtml(p.awarded)}${p.status ? ' \u00b7 ' + escapeHtml(p.status) : ''}`;
+
+  document.querySelectorAll('.match').forEach(el => el.classList.toggle('selected', matches[Number(el.dataset.i)] === p));
+
+  highlightLayer.clearLayers();
+  if (!p.hasCoords) return;
+  L.marker([p.lat, p.lon], { icon: L.divIcon({ className: '', html: '<div class="pulse-ring"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), interactive: false }).addTo(highlightLayer);
+  const hl = L.circleMarker([p.lat, p.lon], { radius: 9, color: '#ff7a00', weight: 3, fillColor: '#ffb066', fillOpacity: 0.9 }).addTo(highlightLayer);
+  hl.bindPopup(popupHtml(p)).openPopup();
+  if (fly) map.flyTo([p.lat, p.lon], Math.max(map.getZoom(), 11), { duration: 0.8 });
+}
+
+function clearSelection() {
+  selected = null;
+  highlightLayer.clearLayers();
+  document.getElementById('resNumber').textContent = 'Select a project to see its number';
+  document.getElementById('resNumber').classList.add('empty');
+  document.getElementById('resMeta').innerHTML = '';
+}
+
+function popupHtml(p) {
+  return `<div class="pnum">${escapeHtml(p.number || '\u2014')}</div><div class="pname">${escapeHtml(p.name)}</div>
+    <div class="psub">${escapeHtml([p.client, p.state].filter(Boolean).join(' \u00b7 '))}<br>Awarded to ${escapeHtml(p.awarded)}</div>`;
+}
+
+let searchTimer;
+searchInput.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 120); });
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && matches.length) selectProject(matches[0], true);
+  if (e.key === 'Escape') { searchInput.value = ''; runSearch(); }
+});
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function escapeAttr(s) { return escapeHtml(s); }
+
+// ---- Boot ----
+(async function init() {
+  try {
+    const resp = await msalApp.handleRedirectPromise();
+    if (resp && resp.account) msalApp.setActiveAccount(resp.account);
+    const token = await getToken();
+    if (!token) { authText.textContent = 'Sign in to load the Sales Database'; return; }
+    signInBtn.style.display = 'none';
+    signOutBtn.style.display = 'inline-block';
+    await loadData(token);
+  } catch (err) {
+    console.error(err);
+    authText.textContent = 'Load failed: ' + err.message;
+    signInBtn.style.display = 'inline-block';
+    signInBtn.textContent = 'Retry';
+  }
+})();
+</script>
+</body>
+</html>
