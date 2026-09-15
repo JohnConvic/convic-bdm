@@ -25,6 +25,10 @@
   #map { height: 100vh; }
 
   .panel-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+  .logo-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .logo-row img { display: block; height: 30px; width: auto; }
+  .nav-link { font-size: 12px; font-weight: 600; color: var(--green-dark); text-decoration: none; border: 1px solid var(--green); border-radius: 999px; padding: 4px 12px; white-space: nowrap; }
+  .nav-link:hover { background: var(--green); color: #fff; }
   .panel-head h1 { margin: 0 0 12px; font-size: 18px; font-weight: 600; }
 
   .search-wrap { position: relative; }
@@ -89,6 +93,7 @@
 <div id="app">
   <aside id="panel">
     <div class="panel-head">
+      <div class="logo-row"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQQAAABECAAAAABCTBQOAAABtElEQVR42u1aXZPDIAjMOvn/f3nv6WZ66SUVBQTLPlZqYF0+nPE4CoVCoVC4Atcf2GnJ7j35tMr3Jco8xM02gpjO3sgEdnx343UVtxsRg0f5tA0/+3KqU/CZBmGAOIYOSmDeLDh4NqJjtrPrY83KN89QZ9HETtOaH4jMoeBrMzthIynQwLatUC+jpkPg2YWj2RCABJMGYZENYhIyFX2pErxjm6j4+tnQrwQsPClaCfHfu4M8ZAzmCheQCpkSkEEf0s8jXouk3tC45Zzg3pvabgFtpATol4SYJMiHPyZUQprpcmU6zF6MsHlN8FVVSxQZtyTBcVwMTAI9QtxICTQsC62yITIJjpeoxIUxMwkoEtTYQm4SUEqomqAnBXyLErCDEpClKiStCdiABMTKh+oO60hApGwIrgSsVMLYwyTGC6/PvbP3Dzjm6AoA3sXU5nm0VDpMZfT71LOFvd8G7g5wlkL2FonVGyMACSo+wlMJSKjiBOkAKz71H/i1I7gU4KoEZRYQIUCI00GTBSCGNCCuCXosaDaxOTq7TuO8fI+9znPQ67+r0JnGwTFfv3tQLhQKhcIjfgBAUFaMFDI4rQAAAABJRU5ErkJggg==" alt="CONVIC"><a class="nav-link" href="site_visit_map_live.html">Site visit map &rarr;</a></div>
       <h1>Job number lookup</h1>
       <div class="search-wrap">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>

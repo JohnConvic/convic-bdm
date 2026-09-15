@@ -33,9 +33,14 @@
   }
   #panel h1 { font-size: 13px; margin: 0 0 10px 0; font-weight: 700; }
   #logoChip {
-    display: inline-block; margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;
   }
   #logoChip img { display: block; height: 28px; width: auto; }
+  .navLink {
+    font-size: 11px; font-weight: 600; color: var(--green); text-decoration: none;
+    border: 1px solid var(--green); border-radius: 999px; padding: 3px 10px; white-space: nowrap;
+  }
+  .navLink:hover { background: var(--green); color: #fff; }
   #panel .row { margin-bottom: 10px; }
   #panel label { display: block; font-weight: 600; margin-bottom: 4px; color: var(--ink); }
   #panel .sub { color: var(--muted); font-size: 10.5px; }
@@ -149,7 +154,7 @@
   <div id="authStatus" style="display:none;"></div>
   <div id="leftPanel">
   <div id="panel">
-    <div id="logoChip"><img id="logoImg" alt="CONVIC" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQQAAABECAAAAABCTBQOAAABtElEQVR42u1aXZPDIAjMOvn/f3nv6WZ66SUVBQTLPlZqYF0+nPE4CoVCoVC4Atcf2GnJ7j35tMr3Jco8xM02gpjO3sgEdnx343UVtxsRg0f5tA0/+3KqU/CZBmGAOIYOSmDeLDh4NqJjtrPrY83KN89QZ9HETtOaH4jMoeBrMzthIynQwLatUC+jpkPg2YWj2RCABJMGYZENYhIyFX2pErxjm6j4+tnQrwQsPClaCfHfu4M8ZAzmCheQCpkSkEEf0s8jXouk3tC45Zzg3pvabgFtpATol4SYJMiHPyZUQprpcmU6zF6MsHlN8FVVSxQZtyTBcVwMTAI9QtxICTQsC62yITIJjpeoxIUxMwkoEtTYQm4SUEqomqAnBXyLErCDEpClKiStCdiABMTKh+oO60hApGwIrgSsVMLYwyTGC6/PvbP3Dzjm6AoA3sXU5nm0VDpMZfT71LOFvd8G7g5wlkL2FonVGyMACSo+wlMJSKjiBOkAKz71H/i1I7gU4KoEZRYQIUCI00GTBSCGNCCuCXosaDaxOTq7TuO8fI+9znPQ67+r0JnGwTFfv3tQLhQKhcIjfgBAUFaMFDI4rQAAAABJRU5ErkJggg=="></div>
+    <div id="logoChip"><img id="logoImg" alt="CONVIC" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQQAAABECAAAAABCTBQOAAABtElEQVR42u1aXZPDIAjMOvn/f3nv6WZ66SUVBQTLPlZqYF0+nPE4CoVCoVC4Atcf2GnJ7j35tMr3Jco8xM02gpjO3sgEdnx343UVtxsRg0f5tA0/+3KqU/CZBmGAOIYOSmDeLDh4NqJjtrPrY83KN89QZ9HETtOaH4jMoeBrMzthIynQwLatUC+jpkPg2YWj2RCABJMGYZENYhIyFX2pErxjm6j4+tnQrwQsPClaCfHfu4M8ZAzmCheQCpkSkEEf0s8jXouk3tC45Zzg3pvabgFtpATol4SYJMiHPyZUQprpcmU6zF6MsHlN8FVVSxQZtyTBcVwMTAI9QtxICTQsC62yITIJjpeoxIUxMwkoEtTYQm4SUEqomqAnBXyLErCDEpClKiStCdiABMTKh+oO60hApGwIrgSsVMLYwyTGC6/PvbP3Dzjm6AoA3sXU5nm0VDpMZfT71LOFvd8G7g5wlkL2FonVGyMACSo+wlMJSKjiBOkAKz71H/i1I7gU4KoEZRYQIUCI00GTBSCGNCCuCXosaDaxOTq7TuO8fI+9znPQ67+r0JnGwTFfv3tQLhQKhcIjfgBAUFaMFDI4rQAAAABJRU5ErkJggg=="><a class="navLink" href="job_lookup_map.html">Job number lookup &rarr;</a></div>
     <h1>Site Visit Radius</h1>
     <div class="row">
       <label>Drive radius: <span id="radiusValue">100</span> km</label>
